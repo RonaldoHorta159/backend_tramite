@@ -51,8 +51,10 @@ class AuthController extends Controller
      */
     public function me()
     {
-        // El middleware 'auth:api' ya hizo el trabajo de validar el token
-        // y establecer el usuario autenticado.
-        return response()->json(auth()->user());
+        // --- CÓDIGO CORREGIDO ---
+        // Cargamos el usuario con su empleado, su área principal y la lista de áreas asignadas.
+        $user = auth()->user()->load(['empleado', 'primaryArea', 'areas']);
+
+        return response()->json($user);
     }
 }

@@ -15,8 +15,10 @@ class Documento extends Model
     protected $table = 'documentos';
 
     protected $fillable = [
+        'respuesta_para_documento_id', // <-- Campo añadido
         'codigo_unico',
         'nro_documento',
+        'correlativo_area',
         'asunto',
         'nro_folios',
         'archivo_pdf',
@@ -66,5 +68,21 @@ class Documento extends Model
     {
         // latestOfMany() obtiene el registro más reciente de la relación 'movimientos'
         return $this->hasOne(Movimiento::class)->latestOfMany();
+    }
+
+    /**
+     * Si este documento es una respuesta, obtiene el documento original.
+     */
+    public function documentoOriginal(): BelongsTo
+    {
+        return $this->belongsTo(Documento::class, 'respuesta_para_documento_id');
+    }
+
+    /**
+     * Obtiene todos los documentos que son respuestas a este.
+     */
+    public function respuestas(): HasMany
+    {
+        return $this->hasMany(Documento::class, 'respuesta_para_documento_id');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 // Asegúrate de importar la interfaz para JWT
@@ -68,5 +69,19 @@ class User extends Authenticatable implements JWTSubject
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
+    }
+
+    // ...
+    // Esta relación obtiene la oficina principal del usuario.
+    public function primaryArea(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'primary_area_id');
+    }
+
+    // --- AÑADIR ESTA NUEVA RELACIÓN ---
+    // Esto obtiene TODAS las áreas a las que el usuario tiene acceso.
+    public function areas(): BelongsToMany
+    {
+        return $this->belongsToMany(Area::class, 'area_user');
     }
 }

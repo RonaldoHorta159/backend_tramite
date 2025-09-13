@@ -11,7 +11,7 @@ class AreaController extends Controller
     // Listar todas las áreas (para la tabla del admin)
     public function index()
     {
-        return Area::orderBy('nombre')->get();
+        return Area::orderBy('nombre')->paginate(10);
     }
 
     // Guardar una nueva área

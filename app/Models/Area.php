@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Area extends Model
 {
@@ -34,4 +35,10 @@ class Area extends Model
         'nombre',
         'estado',
     ];
+    // --- AÑADIR ESTA NUEVA RELACIÓN ---
+    // Esto obtiene todos los usuarios que tienen acceso a esta área.
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'area_user');
+    }
 }

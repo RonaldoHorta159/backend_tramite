@@ -7,13 +7,16 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('areas', function (Blueprint $table) {
-            $table->id(); // Equivale a INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY
-            $table->string('nombre', 100)->unique(); // UNIQUE KEY `uq_nombre_area`
-            $table->timestamp('fecha_registro')->useCurrent(); // DEFAULT current_timestamp()
+            $table->id();
+            $table->string('nombre', 100)->unique();
+
+            // --- AÑADE ESTA LÍNEA ---
+            // Aquí creamos la columna 'codigo' que faltaba.
+            // La hacemos 'unique' para asegurar que no haya dos oficinas con el mismo código.
+            $table->string('codigo', 10)->unique();
+
+            $table->timestamp('fecha_registro')->useCurrent();
             $table->enum('estado', ['ACTIVO', 'INACTIVO'])->default('ACTIVO');
-            // Laravel automáticamente añade las columnas created_at y updated_at,
-            // que son muy útiles para auditoría. Podemos dejarlas o quitarlas.
-            // Por ahora, las dejaremos.
         });
     }
 

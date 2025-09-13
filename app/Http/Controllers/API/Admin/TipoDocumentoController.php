@@ -10,7 +10,7 @@ class TipoDocumentoController extends Controller
 {
     public function index()
     {
-        return TipoDocumento::orderBy('nombre')->get();
+        return TipoDocumento::orderBy('nombre')->paginate(10);
     }
 
     public function store(Request $request)
@@ -29,22 +29,31 @@ class TipoDocumentoController extends Controller
         return $tipoDocumento;
     }
 
-    public function update(Request $request, TipoDocumento $tipoDocumento)
+    public function update(Request $request, $id) // <-- CAMBIA $tipoDocumento por $tipo_documento
     {
+
         $validated = $request->validate([
-            'nombre' => 'required|string|max:100|unique:tipos_documento,nombre,' . $tipoDocumento->id,
+            // La validación ahora usa la variable correcta
+            'nombre' => 'required|string|max:100|unique:tipos_documento,nombre,' . $id,
             'estado' => 'required|in:ACTIVO,INACTIVO',
         ]);
 
-        $tipoDocumento->update($validated);
-        return response()->json($tipoDocumento);
+        // Ahora que la vinculación funciona, podemos volver al método update() que es más limpio.
+        $tipo_documento = TipoDocumento::findOrFail($id);
+        $tipo_documento->nombre = $validated['nombre'];
+        $tipo_documento->estado = $validated['estado'];
+        $tipo_documento->save();
+        return response()->json($tipo_documento);
     }
 
-    public function destroy(TipoDocumento $tipoDocumento)
+
+
+    public function destroy(TipoDocumento $tipo_documento) // <-- CAMBIA $tipoDocumento por $tipo_documento
     {
-        $tipoDocumento->estado = 'INACTIVO';
-        $tipoDocumento->save();
+        $tipo_documento->estado = 'INACTIVO';
+        $tipo_documento->save();
 
         return response()->json(null, 204);
     }
+
 }
