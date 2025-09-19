@@ -7,54 +7,46 @@ use App\Models\Documento;
 use App\Models\Area;
 use App\Models\Movimiento;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
 
 class BandejaController extends Controller
 {
     /**
      * Devuelve el historial completo y paginado de todos los documentos
      * que alguna vez fueron enviados a las áreas accesibles por el usuario.
+     * (OPTIMIZADO + DATOS EXTRA)
      */
     public function index()
     {
         $usuario = Auth::user();
+        if (!$usuario) {
+            return response()->json(['message' => 'No autenticado.'], 401);
+        }
 
-        // --- LÓGICA ROBUSTA Y MULTI-ÁREA ---
-        // 1. Obtenemos las áreas asociadas al usuario por tabla pivote
-        $accessibleAreaIds = $usuario->areas()->pluck('areas.id');
+        $accessibleAreaIds = $this->getAccessibleAreaIds($usuario);
 
-        // 2. Añadimos su área principal
-        $accessibleAreaIds->push($usuario->primary_area_id);
-
-        // 3. Nos aseguramos que no haya duplicados
-        $areaIdsUnicos = $accessibleAreaIds->unique();
-
-        // 4. Obtenemos documentos con movimientos hacia cualquiera de esas áreas
-        $documentoIds = Movimiento::whereIn('area_destino_id', $areaIdsUnicos)
-            ->distinct()
-            ->pluck('documento_id');
-
-        $documentos = Documento::whereIn('id', $documentoIds)
-            ->with(['tipoDocumento', 'areaOrigen', 'areaActual'])
+        // ✅ OPTIMIZACIÓN: Esta consulta ahora funcionará porque DB está importado.
+        $documentos = Documento::query()
+            ->whereExists(function ($query) use ($accessibleAreaIds) {
+                $query->select(DB::raw(1))
+                    ->from('movimientos')
+                    ->whereColumn('movimientos.documento_id', 'documentos.id')
+                    ->whereIn('movimientos.area_destino_id', $accessibleAreaIds);
+            })
+            ->with(['tipoDocumento', 'areaOrigen', 'areaActual', 'latestMovement'])
             ->addSelect([
-                'latest_proveido' => Movimiento::select('proveido')
-                    ->whereColumn('documento_id', 'documentos.id')
-                    ->orderBy('id', 'desc')
-                    ->limit(1),
-
                 'fue_recibido_en_area_actual' => Movimiento::selectRaw('1')
                     ->whereColumn('documento_id', 'documentos.id')
-                    ->whereIn('area_destino_id', $areaIdsUnicos)
+                    ->whereIn('area_destino_id', $accessibleAreaIds)
                     ->where('estado_movimiento', 'RECIBIDO')
                     ->limit(1)
             ])
             ->orderBy('updated_at', 'desc')
             ->paginate(15);
 
-        // Post-procesamos resultados
         $documentos->through(function ($doc) {
             $doc->fue_recibido_en_area_actual = (bool) $doc->fue_recibido_en_area_actual;
-            $doc->latestMovement = (object) ['proveido' => $doc->latest_proveido];
-            unset($doc->latest_proveido);
             return $doc;
         });
 
@@ -64,57 +56,37 @@ class BandejaController extends Controller
     /**
      * Devuelve solo los documentos que están pendientes de recepción
      * en cualquiera de las áreas del usuario.
+     * (OPTIMIZADO + PROVEÍDO)
      */
     public function getPendientes()
     {
         $usuario = Auth::user();
-        $accessibleAreaIds = $usuario->areas()->pluck('areas.id');
-        $accessibleAreaIds->push($usuario->primary_area_id);
-        $areaIdsUnicos = $accessibleAreaIds->unique();
+        $areaIdsUnicos = $this->getAccessibleAreaIds($usuario);
 
         $documentos = Documento::whereIn('area_actual_id', $areaIdsUnicos)
             ->where('estado_general', 'EN TRAMITE')
             ->whereNull('respuesta_para_documento_id')
-            // --- AÑADIDO: La condición clave ---
-            // "Donde NO EXISTA un movimiento para este documento, que sea de tipo RECIBIDO
-            // y cuyo destino sea una de las áreas del usuario"
             ->whereDoesntHave('movimientos', function ($query) use ($areaIdsUnicos) {
                 $query->where('estado_movimiento', 'RECIBIDO')
                     ->whereIn('area_destino_id', $areaIdsUnicos);
             })
-            // --- FIN DE LA CONDICIÓN ---
-            ->with(['tipoDocumento', 'areaOrigen'])
-            ->addSelect([
-                'latest_proveido' => Movimiento::select('proveido')
-                    ->whereColumn('documento_id', 'documentos.id')
-                    ->orderBy('id', 'desc')
-                    ->limit(1)
-            ])
+            // --- CAMBIO CLAVE: Cargamos el último movimiento y su origen ---
+            ->with(['tipoDocumento', 'latestMovement.areaOrigen'])
+            ->orderBy('updated_at', 'desc')
             ->get();
-
-        // ... (el resto del método no cambia)
-        $documentos = $documentos->map(function ($doc) {
-            $doc->latestMovement = (object) ['proveido' => $doc->latest_proveido];
-            unset($doc->latest_proveido);
-            return $doc;
-        });
 
         return response()->json($documentos);
     }
 
     /**
      * Devuelve datos agrupados para la vista (tabla principal, pendientes y áreas).
+     * (OPTIMIZADO)
      */
     public function getDataForView()
     {
         $usuario = Auth::user();
+        $areaIdsUnicos = $this->getAccessibleAreaIds($usuario);
 
-        // Áreas accesibles
-        $accessibleAreaIds = $usuario->areas()->pluck('areas.id');
-        $accessibleAreaIds->push($usuario->primary_area_id);
-        $areaIdsUnicos = $accessibleAreaIds->unique();
-
-        // Documentos recibidos (tabla principal)
         $todosLosDocumentos = Documento::whereHas('movimientos', function ($query) use ($areaIdsUnicos) {
             $query->whereIn('area_destino_id', $areaIdsUnicos);
         })
@@ -122,13 +94,11 @@ class BandejaController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        // Documentos pendientes (modal)
         $documentosPendientes = Documento::whereIn('area_actual_id', $areaIdsUnicos)
             ->where('estado_general', 'EN TRAMITE')
             ->with(['tipoDocumento', 'areaOrigen', 'latestMovement'])
             ->get();
 
-        // Áreas disponibles
         $areas = Area::where('estado', 'ACTIVO')->orderBy('nombre')->get();
 
         return response()->json([
@@ -136,5 +106,15 @@ class BandejaController extends Controller
             'documentosPendientes' => $documentosPendientes,
             'areas' => $areas,
         ]);
+    }
+
+    /**
+     * Helper para obtener los IDs de área accesibles por un usuario.
+     */
+    private function getAccessibleAreaIds($usuario)
+    {
+        $accessibleAreaIds = $usuario->areas()->pluck('areas.id');
+        $accessibleAreaIds->push($usuario->primary_area_id);
+        return $accessibleAreaIds->unique();
     }
 }

@@ -22,7 +22,7 @@ Route::group(['middleware' => 'auth:api'], function ($router) {
     Route::get('dashboard/stats', [DashboardController::class, 'getStats']);
     Route::get('documentos/recibidos', [BandejaController::class, 'index']);
     Route::get('documentos/pendientes', [BandejaController::class, 'getPendientes']);
-    Route::get('documentos/siguiente-correlativo/{area}', [DocumentoController::class, 'getSiguienteCorrelativo']);
+    Route::get('documentos/siguiente-correlativo/{area_id}/{tipo_documento_id}', [DocumentoController::class, 'getSiguienteCorrelativo']);
     Route::get('documentos/por-area/{area}', [DocumentoController::class, 'indexPorAreaUsuario']);
     Route::get('documentos', [DocumentoController::class, 'index']);
     Route::post('documentos', [DocumentoController::class, 'store']);
@@ -30,11 +30,9 @@ Route::group(['middleware' => 'auth:api'], function ($router) {
     Route::post('documentos/{documento}/derivar', [DocumentoController::class, 'derivar']);
     Route::post('documentos/{documento}/recepcionar', [DocumentoController::class, 'recepcionar']);
 
-    // --- RUTAS MODIFICADAS Y AÑADIDAS ---
-    // Se elimina la ruta 'finalizarConRespuesta' y se reemplaza por estas dos
+    // --- RUTA ACTUALIZADA ---
     Route::post('documentos/{documento}/responder', [DocumentoController::class, 'responder']);
-    Route::post('documentos/{documento}/finalizar', [DocumentoController::class, 'finalizar']);
-    // --- FIN DE LA MODIFICACIÓN ---
+
 
     Route::get('catalogos/tipos-documento', [CatalogoController::class, 'getTiposDocumento']);
     Route::get('catalogos/areas', [CatalogoController::class, 'getAreas']);

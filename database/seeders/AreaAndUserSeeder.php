@@ -126,7 +126,7 @@ class AreaAndUserSeeder extends Seeder
             // Creamos el Usuario
             User::create([
                 'empleado_id' => $empleado->id,
-                'primary_area_id' => $areaMap[$nombreOficina], // aquí aplico el cambio del primer código
+                'primary_area_id' => $areaMap[$nombreOficina],
                 'nombre_usuario' => $dni,
                 'password' => Hash::make('password'),
                 'rol' => $rol,

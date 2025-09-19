@@ -20,7 +20,6 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Usamos auth('api')->attempt() para ser explícitos
         if (!$token = auth('api')->attempt($credentials)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
@@ -36,11 +35,17 @@ class AuthController extends Controller
      */
     protected function respondWithToken($token)
     {
+        // Obtenemos el usuario autenticado
+        $user = auth('api')->user();
+
+        // Cargamos las relaciones que necesitamos en el frontend
+        $user->load(['empleado', 'primaryArea', 'areas']);
+
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => config('jwt.ttl') * 60,
-            'user' => auth('api')->user() // <-- LÍNEA CORREGIDA
+            'user' => $user
         ]);
     }
 
@@ -51,10 +56,7 @@ class AuthController extends Controller
      */
     public function me()
     {
-        // --- CÓDIGO CORREGIDO ---
-        // Cargamos el usuario con su empleado, su área principal y la lista de áreas asignadas.
         $user = auth()->user()->load(['empleado', 'primaryArea', 'areas']);
-
         return response()->json($user);
     }
 }

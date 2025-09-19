@@ -3,33 +3,35 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Documento;
 
 class StoreDocumentoRequest extends FormRequest
 {
     /**
-     * Determina si el usuario está autorizado para hacer esta petición.
+     * Determine if the user is authorized to make this request.
+     * Aquí usamos nuestro Policy para verificar el permiso.
      */
     public function authorize(): bool
     {
-        // Ya estamos protegiendo la ruta con el middleware auth:api,
-        // así que aquí podemos simplemente retornar true.
-        return true;
+        // Llama al método 'create' del DocumentoPolicy.
+        // Le pasamos el ID del área de origen que viene en la petición.
+        return $this->user()->can('create', [Documento::class, $this->area_origen_id]);
     }
 
     /**
-     * Obtiene las reglas de validación que aplican a la petición.
-     *
+     * Get the validation rules that apply to the request.
+     * Aquí van las reglas de validación que antes estaban en el controlador.
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array|string>
      */
     public function rules(): array
     {
         return [
             'tipo_documento_id' => 'required|integer|exists:tipos_documento,id',
-            'nro_documento' => 'required|string|max:50',
             'asunto' => 'required|string|max:255',
             'nro_folios' => 'required|integer|min:1',
             'area_destino_id' => 'required|integer|exists:areas,id',
-            'archivo_pdf' => 'nullable|file|mimes:pdf|max:2048', // Opcional, PDF, max 2MB
+            'archivo_pdf' => 'sometimes|nullable|file|mimes:pdf|max:10240', // opcional, nulo y hasta 10MB
+            'area_origen_id' => 'required|integer|exists:areas,id',
         ];
     }
 }
